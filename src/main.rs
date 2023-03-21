@@ -1,4 +1,10 @@
-use chrono::offset::Local;
+//TODO
+/*
+--Create more methods for dynamic usage (multiple worksheets, single sheets, multiple singles for category, etc.)
+--Refine generation and output
+ */
+
+use chrono::offset::Local; //I really, REALLY wish that there was something I could use to get the local time in a human-readable format without using Chrono.
 use rand::{
     distributions::{Alphanumeric, DistString, Uniform},
     prelude::*,
@@ -7,6 +13,7 @@ use std::{
     fs::File,
     io::{prelude::*, stdin, LineWriter, Result},
     process::exit,
+
 };
 
 const NUM_OF_PROBLEMS: &str = "\nPlease enter the number of problems you would like to generate:\n";
@@ -15,12 +22,14 @@ const HIGHEST_NUM: &str = "\nPlease enter the highest number you want in the gen
 const NEGATIVES: &str = "\nWould you like to allow negative numbers for the problem results?\nPlease enter 'y' or 'n':\n";
 const WS_PROMPT: &str = "\nPlease enter the operations that you wish to perform.\nSeparate your inputs with commas if selecting multiple, e.g. '1,2,3,4':\n";
 
+//Enum meant for crafting a dynamic return object.
 enum Either<A, B, C> {
     Left(A),
     Center(B),
     Right(C),
 }
 
+//The type of operation to perform.
 #[derive(Clone, Copy, Default)]
 enum Operation {
     #[default]
@@ -30,12 +39,14 @@ enum Operation {
     Division,
 }
 
+//What type of input we expect from the user.
 enum UserInputType {
     Boolean,
     Number,
     Numbers,
 }
 
+//Runtime options centered around the type of operation that we are to perform.
 #[derive(Default)]
 struct OperationOptions {
     op_type: Operation,
@@ -45,6 +56,7 @@ struct OperationOptions {
     num_of_problems: i32,
 }
 
+//Main problem container. Fairly naive, but it's functional for now.
 struct Problem {
     constant1: i32,
     sign: char,
@@ -53,6 +65,10 @@ struct Problem {
     des: char,
 }
 
+/*
+Type implementation, using generics to define placements and rulesets.
+In this case, setting up the unwrap functions for returning data from the Either type.
+*/
 impl<L, C, R> Either<L, C, R> {
     fn unwrap_left(self) -> L
     where
@@ -307,26 +323,42 @@ fn maingen(main_options: &OperationOptions) -> (Vec<String>, Vec<String>) {
         let perc_base = (main_options.highest_num - main_options.lowest_num) / 100;
         let perc: i32 = perc_base * 12;
 
+        /*
+        Yes, I know, very bizarre formatting, but I couldn't think of how else to shape this up
+        with what I wanted to do. What, use if/else?
+        */
         match num_cont {
-            _ if (main_prob.constant1 - perc..=main_prob.constant1 + perc)
-                .contains(&main_prob.constant2) =>
-            {
-                continue
-            }
-            _ if main_prob.result <= 0 && !main_options.negatives => continue,
-            _ if loopnum > 1
-                && (main_prob.constant1 - perc..=main_prob.constant1 + perc).contains(&last_c1) =>
-            {
-                continue
-            }
-            _ if loopnum > 1
-                && (main_prob.constant2 - perc..=main_prob.constant2 + perc).contains(&last_c2) =>
-            {
-                continue
-            }
-            _ if loopnum > 1 && num_cont.contains(&main_prob.constant1) => continue,
-            _ if loopnum > 1 && num_cont.contains(&main_prob.constant2) => continue,
-            _ if loopnum > 1 && ans_cont.contains(&main_prob.result) => continue,
+            /*
+            If the second constant is within the specified range of the first constant,
+            or if the result is negatives and negatives are disallowed...
+             */
+            _ if (
+                (main_prob.constant1 - perc..=main_prob.constant1 + perc).contains(&main_prob.constant2) ||
+                (main_prob.result <= 0 && !main_options.negatives)) => continue,
+            /*
+            Beyond the first iteration,
+            if the first or second constants are within the specified range of the last-known values...
+             */
+            _ if loopnum > 1 && (
+                (main_prob.constant1 - perc..=main_prob.constant1 + perc).contains(&last_c1) ||
+                (main_prob.constant2 - perc..=main_prob.constant2 + perc).contains(&last_c2)) => continue,
+            /*
+            if the number container holds our current constants,
+            or if the answer container holds our current result...
+             */
+            _ if loopnum > 1 && (
+                num_cont.contains(&main_prob.constant1) ||
+                num_cont.contains(&main_prob.constant2) ||
+                ans_cont.contains(&main_prob.result)) => continue,
+            /*
+            ...then regenerate and rerun. Otherwise,
+            iterate the successful loop count,
+            push the constants to the number container,
+            assign the constants as our last-known values,
+            push the result to the answers container,
+            write the Problem using the resultant data and iteration to their respective strings,
+            then push the resultant strings to their respective containers.
+             */
             _ => {
                 loopnum += 1;
                 num_cont.push(main_prob.constant1);
