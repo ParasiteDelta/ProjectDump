@@ -98,8 +98,8 @@ proc makeWorksheet(op: string) =
         else:
             echo "ERR: Unrecognized Operator!"
 
-    writeFile("NRQuiz_{output}.txt", final)
-    writeFile("NRQuiz_{output}_Ins.txt", finalIns)
+    writeFile(fmt"NRQuiz_{output}.txt", final)
+    writeFile(fmt"NRQuiz_{output}_Ins.txt", finalIns)
 
 proc menu() =
     var usr_entry = ""
