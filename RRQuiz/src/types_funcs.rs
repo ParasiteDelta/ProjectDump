@@ -39,7 +39,7 @@ pub struct OperationOptions {
     negatives: bool,
     lowest_num: i32,
     highest_num: i32,
-    num_of_problems: i32,
+    problems: i32,
 }
 
 pub struct Problem {
@@ -53,7 +53,7 @@ pub struct Problem {
 
 /*===IMPLEMENTATIONS===*/
 impl<L, C, R> Either<L, C, R> {
-    pub fn unwrap_left(self) -> L
+    pub fn uw_l(self) -> L
     where
         C: core::fmt::Debug,
         R: core::fmt::Debug,
@@ -68,7 +68,7 @@ impl<L, C, R> Either<L, C, R> {
             }
         }
     }
-    pub fn unwrap_center(self) -> C
+    pub fn uw_c(self) -> C
     where
         L: core::fmt::Debug,
         R: core::fmt::Debug,
@@ -83,7 +83,7 @@ impl<L, C, R> Either<L, C, R> {
             }
         }
     }
-    pub fn unwrap_right(self) -> R
+    pub fn uw_r(self) -> R
     where
         L: core::fmt::Debug,
         C: core::fmt::Debug,
@@ -133,45 +133,36 @@ impl OperationOptions {
         OperationOptions::default()
     }
     pub fn update(target: &mut OperationOptions) {
-        target.num_of_problems = get_inp(UserInputType::Number, NUM_OF_PROBLEMS).unwrap_center();
-        target.lowest_num = get_inp(UserInputType::Number, LOWEST_NUM).unwrap_center();
-        target.highest_num = get_inp(UserInputType::Number, HIGHEST_NUM).unwrap_center();
-        target.negatives = get_inp(UserInputType::Boolean, NEGATIVES).unwrap_left();
+        target.problems = get_inp(UserInputType::Number, NUM_OF_PROBLEMS).uw_c();
+        target.lowest_num = get_inp(UserInputType::Number, LOWEST_NUM).uw_c();
+        target.highest_num = get_inp(UserInputType::Number, HIGHEST_NUM).uw_c();
+        target.negatives = get_inp(UserInputType::Boolean, NEGATIVES).uw_l();
     }
 }
 
 impl Problem {
-    pub fn build(c1: i32, c2: i32, op: &Operation) -> Problem {
+    pub fn build(constant1: i32, constant2: i32, op: &Operation) -> Problem {
+        let mut res = Problem {constant1, sign: '+', constant2, result: constant1 + constant2, des: 'A'};
+
         match op {
-            Operation::Addition => Problem {
-                constant1: c1,
-                sign: '+',
-                constant2: c2,
-                result: c1 + c2,
-                des: 'A',
+            Operation::Addition => return res,
+            Operation::Subtraction => {
+                res.sign = '-';
+                res.result = constant1 - constant2;
+                res.des = 'S';
             },
-            Operation::Subtraction => Problem {
-                constant1: c1,
-                sign: '-',
-                constant2: c2,
-                result: c1 - c2,
-                des: 'S',
+            Operation::Multiplication => {
+                res.sign = '*';
+                res.result = constant1 * constant2;
+                res.des = 'M';
             },
-            Operation::Multiplication => Problem {
-                constant1: c1,
-                sign: '*',
-                constant2: c2,
-                result: c1 * c2,
-                des: 'M',
-            },
-            Operation::Division => Problem {
-                constant1: c1,
-                sign: '/',
-                constant2: c2,
-                result: c1 / c2,
-                des: 'D',
+            Operation::Division => {
+                res.sign = '/';
+                res.result = constant1 / constant2;
+                res.des = 'D';
             },
         }
+    res
     }
     pub fn write(p: Problem, p_num: &i32) -> (String, String) {
         let res_prob: String = format!(
@@ -193,7 +184,7 @@ pub fn get_inp<S: AsRef<str>>(des_output: UserInputType, prompt: S) -> Either<bo
     println!("{}", prompt.as_ref());
     stdin()
         .read_line(&mut usr_inp)
-        .expect("ERR: Failed to read line!");
+        .expect("{ERR_NOREAD}");
 
     match des_output {
         UserInputType::Boolean => loop {
@@ -201,22 +192,13 @@ pub fn get_inp<S: AsRef<str>>(des_output: UserInputType, prompt: S) -> Either<bo
                 "y" | "Y" | "yes" | "1" => return Either::Left(true),
                 "n" | "N" | "no" | "0" => return Either::Left(false),
                 _ => {
-                    println!("ERR: Invalid or unrecognized input!");
+                    println!("{ERR_UNS}");
                     continue;
                 }
             };
         },
-        UserInputType::Number => {
-            let proc = usr_inp.trim().parse().unwrap();
-
-            Either::Center(proc)
-        }
-        UserInputType::Numbers => {
-            let proc = usr_inp.trim();
-            let res: Vec<u32> = proc.chars().filter_map(|a| a.to_digit(10)).collect();
-
-            Either::Right(res)
-        }
+        UserInputType::Number => { Either::Center(usr_inp.trim().parse().unwrap()) },
+        UserInputType::Numbers => { Either::Right(usr_inp.trim().chars().filter_map(|a| a.to_digit(10)).collect()) },
     }
 }
 
@@ -225,26 +207,13 @@ pub fn usr_opt_worksheet_sel() -> Result<()> {
     let (f_out, f_out_ins) = filegen();
     let (mut f_dist, mut f_ins) = (LineWriter::new(f_out), LineWriter::new(f_out_ins));
     let mut opt_cont = OperationOptions::new();
-    let p_types = Operation::derive_type(get_inp(UserInputType::Numbers, WS_PROMPT).unwrap_right());
+    let p_types = Operation::derive_type(get_inp(UserInputType::Numbers, WS_PROMPT).uw_r());
 
     for e in p_types {
         opt_cont.op_type = e;
-        println!("\nCurrent: {}", e.string());
+        println!("\nCurrent: {}", opt_cont.op_type.string());
 
-        match e {
-            Operation::Addition => {
-                OperationOptions::update(&mut opt_cont);
-            }
-            Operation::Subtraction => {
-                OperationOptions::update(&mut opt_cont);
-            }
-            Operation::Multiplication => {
-                OperationOptions::update(&mut opt_cont);
-            }
-            Operation::Division => {
-                OperationOptions::update(&mut opt_cont);
-            }
-        }
+        OperationOptions::update(&mut opt_cont);
 
         let (mut res, mut res_ins) = maingen(&opt_cont);
         res_cont.append(&mut res);
@@ -282,7 +251,7 @@ pub fn maingen(main_options: &OperationOptions) -> (Vec<String>, Vec<String>) {
         (0, Vec::new(), Vec::new());
     let (mut res_cont, mut res_cont_ins): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
 
-    while loopnum < main_options.num_of_problems {
+    while loopnum < main_options.problems {
         let (mut rng1, mut rng2) = (thread_rng(), thread_rng());
         let (mut last_c1, mut last_c2): (i32, i32) = (0, 0);
 
